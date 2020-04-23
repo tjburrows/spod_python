@@ -166,7 +166,6 @@ def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isrea
                 Q_blk[ti - offset, :] = (xi - x_mean).flatten()
         else:
             Q_blk = np.subtract(x[timeIdx,:], x_mean)
-        
 
         # if block mean is to be subtracted, do it now that all data is collected
         if blk_mean:
@@ -181,9 +180,10 @@ def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isrea
             Q_blk = np.divide(Q_blk,Q_var)
         
         # window and Fourier transform block
-        Q_blk = np.multiply(Q_blk, np.expand_dims(window, axis=1))
+        Q_blk = np.multiply(Q_blk, np.expand_dims(window, axis=list(range(1,Q_blk.ndim))))
         Q_blk_hat = winWeight / nDFT * np.fft.fft(Q_blk, axis=0)
         Q_blk_hat = Q_blk_hat[:nFreq, :]
+        Q_blk_hat = np.reshape(Q_blk_hat, (nFreq, -1))
         
         # correct Fourier coefficients for one-sided spectrum
         if isrealx:
