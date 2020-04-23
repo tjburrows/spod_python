@@ -1,7 +1,7 @@
 # Spectral Proper Orthogonal Decomposition in Python
 This is a work in progress port of the Towne et al. SPOD Matlab function to Python 3.  See below for the original documentation.
 
-# Spectral Proper Orthogonal Decomposition in Matlab
+## Spectral Proper Orthogonal Decomposition in Matlab
 SPOD() is a Matlab implementation of the frequency domain form of proper orthogonal decomposition (POD, also known as principle component analysis or Karhunen-Loève decomposition) called spectral proper orthogonal decomposition (SPOD). SPOD is derived from a space-time POD problem for stationary flows [[1](https://arxiv.org/abs/1708.04393),2] and leads to modes that each oscillate at a single frequency. SPOD modes represent dynamic structures that optimally account for the statistical variability of stationary random processes.
 
 The large-eddy simulation data provided along with this example is a subset of the database of a Mach 0.9 turbulent jet described in [3] and was calculated using the unstructured flow solver Charles developed at Cascade Technologies. If you are using the database in your research or teaching, please include explicit mention of Brès et al. [3]. The test database consists of 5000 snapshots of the symmetric component (m=0) of a round turbulent jet. 
