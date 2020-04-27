@@ -126,7 +126,7 @@ def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isrea
         if blk_mean:
             mean_name = 'blockwise mean'
         else:
-            x_mean = np.mean(x, axis=0, keepdims=True)
+            x_mean = np.mean(x, axis=0).flatten()
             mean_name = 'long-time (true) mean'
     
     printer('Mean                      : %s' % mean_name, 1)
@@ -155,7 +155,6 @@ def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isrea
         offset = int(min(iBlk * (nDFT - noverlap) + nDFT, nt) - nDFT)
         timeIdx = np.arange(nDFT) + offset
         printer('block %d  / %d (%d:%d)' % (iBlk+1, nBlks, timeIdx[0]+1, timeIdx[-1]+1), 2)
-        
         # build present block
         if blk_mean:
             x_mean = 0
@@ -163,10 +162,10 @@ def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isrea
             Q_blk = np.zeros((nDFT, nx))
             for ti in timeIdx:
                 xi = x(ti)
-                Q_blk[ti - offset, :] = (xi - x_mean).flatten()
+                Q_blk[ti - offset, :] = xi.flatten() - x_mean
         else:
-            Q_blk = np.subtract(x[timeIdx,:], x_mean)
-
+            Q_blk = np.subtract(np.reshape(x[timeIdx,:], (nDFT,-1)), np.expand_dims(x_mean,0))
+        
         # if block mean is to be subtracted, do it now that all data is collected
         if blk_mean:
             Q_blk = np.subtract(Q_blk, np.mean(Q_blk, axis=0, keepdims=True))
@@ -178,12 +177,11 @@ def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isrea
             eps = np.finfo(type(Q_var)).eps
             Q_var[Q_var < 4 * eps] = 1
             Q_blk = np.divide(Q_blk,Q_var)
-        
+            
         # window and Fourier transform block
-        Q_blk = np.multiply(Q_blk, np.expand_dims(window, axis=list(range(1,Q_blk.ndim))))
-        Q_blk_hat = winWeight / nDFT * np.fft.fft(Q_blk, axis=0)
+        Q_blk = np.multiply(Q_blk, np.expand_dims(window, axis=1))
+        Q_blk_hat = winWeight / nDFT * scipy.fft.fft(Q_blk, axis=1)
         Q_blk_hat = Q_blk_hat[:nFreq, :]
-        Q_blk_hat = np.reshape(Q_blk_hat, (nFreq, -1))
         
         # correct Fourier coefficients for one-sided spectrum
         if isrealx:
@@ -202,8 +200,8 @@ def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isrea
         printer('frequency %d / %d (f=%g)' % (iFreq+1, nFreq, f[iFreq]), 2)
         Q_hat_f = Q_hat[iFreq, :, :]
         M = np.matmul(Q_hat_f.T, np.multiply(Q_hat_f, np.expand_dims(weight, axis=1))) / nBlks
-        Lambda, Theta = np.linalg.eig(M)
-        idx = np.argsort(np.abs(Lambda))[::-1] # does not match MATLAB sort
+        Lambda, Theta = np.linalg.eig(M) # Lambda matches but Theta does not (but is still valid)
+        idx = np.argsort(Lambda)[::-1]
         Lambda = Lambda[idx]
         Theta = Theta[:, idx]
         Psi = np.matmul(np.matmul(Q_hat_f, Theta), np.diag(np.reciprocal(np.sqrt(Lambda)) / np.sqrt(nBlks)))

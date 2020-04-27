@@ -12,9 +12,9 @@ f = h5py.File('jet_data/jetLES.mat','r')
 for key, value in f.items():
     data[key] = np.array(value)
 
-p = np.moveaxis(data['p'],2,0)
-x = data['x']
-r = data['r']
+p = np.swapaxes(data['p'],0,2)
+x = np.swapaxes(data['x'],0,1)
+r = np.swapaxes(data['r'],0,1)
 
 # print(p.shape)
 
