@@ -7,6 +7,7 @@ Basic spod computation works, and example results match well.  Results do not ma
 ## To Do
  - Update this Readme
  - Add implementation of out-of-memory computation (savefft, deletefft, savedir, savefreqs, loadfft)
+ - improve commenting, formatting of code
 
 ## Original Matlab Documentation
 SPOD() is a Matlab implementation of the frequency domain form of proper orthogonal decomposition (POD, also known as principle component analysis or Karhunen-Loève decomposition) called spectral proper orthogonal decomposition (SPOD). SPOD is derived from a space-time POD problem for stationary flows [[1](https://arxiv.org/abs/1708.04393),2] and leads to modes that each oscillate at a single frequency. SPOD modes represent dynamic structures that optimally account for the statistical variability of stationary random processes.
