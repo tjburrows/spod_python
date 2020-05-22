@@ -1,8 +1,7 @@
 import h5py
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.animation as animation
-from spod import spodmod
+from spod import spod
 import matplotlib as mpl
 mpl.rcParams['figure.dpi'] = 200
 plt.close('all')
@@ -18,7 +17,7 @@ x = np.swapaxes(data['x'],0,1)
 r = np.swapaxes(data['r'],0,1)
 dt = data['dt'][0][0]
 
-result = spodmod(p, dt=dt, debug=2)
+result = spod(p, dt=dt, debug=2)
 
 plt.figure()
 plt.loglog(result['f'], result['L'], linewidth=0.5)
