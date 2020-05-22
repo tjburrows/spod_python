@@ -4,17 +4,20 @@ from warnings import warn
 from scipy.special import gammaincinv
 import scipy
 
+# Hamming window
 def hammwin(N):
     return 0.54 - 0.46 * np.cos(2 * np.pi * np.arange(N) / (N - 1))
 
 def nextpow2(n):
     return np.ceil(np.log2(np.abs(n)))
 
+# print output based on verbosity level
 def printer(string, level):
     global verbosity
     if verbosity >= level:
         print(string)
 
+# parse spod arguments
 def spod_parser(nt, nx, isrealx, window, weight, noverlap, conflvl):
     
     if window == 'hamming' or window is None:
@@ -81,6 +84,8 @@ def spod_parser(nt, nx, isrealx, window, weight, noverlap, conflvl):
     return (window, weight, noverlap, nDFT, nBlks, conflvl)
 
 def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isreal=None, nt = None, conflvl=None, normvar=False, debug=0):
+    
+    # verbosity of output
     global verbosity
     verbosity = debug
     
@@ -160,14 +165,14 @@ def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isrea
         offset = int(min(iBlk * (nDFT - noverlap) + nDFT, nt) - nDFT)
         timeIdx = np.arange(nDFT) + offset
         printer('block %d  / %d (%d:%d)' % (iBlk+1, nBlks, timeIdx[0]+1, timeIdx[-1]+1), 2)
+        
         # build present block
         if blk_mean:
             x_mean = 0
         if xfun:
             Q_blk = np.zeros((nDFT, nx))
             for ti in timeIdx:
-                xi = x(ti)
-                Q_blk[ti - offset, :] = xi.flatten(order='F') - x_mean
+                Q_blk[ti - offset, :] = x(ti).flatten(order='F') - x_mean
         else:
             Q_blk = np.subtract(np.reshape(x[timeIdx,:], (nDFT,-1), order='F'), np.expand_dims(x_mean,0))
         
@@ -193,6 +198,8 @@ def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isrea
         
         # keep FFT blocks in memory
         Q_hat[:,:,iBlk] = Q_blk_hat
+        
+    Q_hat = np.real_if_close(Q_hat)
     
     # loop over all frequencies and calculate SPOD
     L = np.zeros((nFreq, nBlks),  dtype=np.cdouble)
@@ -204,7 +211,7 @@ def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isrea
         printer('frequency %d / %d (f=%g)' % (iFreq+1, nFreq, f[iFreq]), 2)
         Q_hat_f = np.matrix(Q_hat[iFreq, :, :])
         M = np.matmul(Q_hat_f.H, np.multiply(Q_hat_f, np.expand_dims(weight, axis=1))) / nBlks
-        Lambda, Theta = scipy.linalg.eig(M,check_finite=True) # Lambda matches but Theta does not (but is still valid)
+        Lambda, Theta = scipy.linalg.eig(M, check_finite=True) # Lambda matches but Theta does not (but is still valid)
         Lambda = np.real_if_close(Lambda)
         Theta = np.real_if_close(Theta)
         idx = np.argsort(Lambda)[::-1]
