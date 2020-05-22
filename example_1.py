@@ -1,28 +1,30 @@
-# -*- coding: utf-8 -*-
-
 import h5py
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from spod import spod
+
 plt.close('all')
+
 data = {}
 
 f = h5py.File('jet_data/jetLES.mat','r')
+fields = ['p','x','r']
 for key, value in f.items():
-    data[key] = np.array(value)
+    if key in fields:
+        data[key] = np.array(value)
 
 p = np.swapaxes(data['p'],0,2)
 x = np.swapaxes(data['x'],0,1)
 r = np.swapaxes(data['r'],0,1)
 
-# print(p.shape)
+print(p.shape)
 
 fig1 = plt.figure()
 plt.xlabel('x')
 plt.ylabel('r')
 plt.axis('equal')
-cax = plt.pcolormesh(x, r, p[0,:,:], shading='gouraud', cmap='viridis', vmin=4.43,vmax=4.48)
+cax = plt.pcolormesh(x, r, p[0,:,:], shading='gouraud', cmap='viridis', vmin=4.43, vmax=4.48)
 
 def animate(i):
     cax.set_array(p[i,:,:].flatten())

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import numpy as np
 from types import FunctionType
 from warnings import warn
@@ -16,9 +15,9 @@ def printer(string, level):
     if verbosity >= level:
         print(string)
 
-def spod_parser(nt, nx, isrealx, window, weight, noverlap):
+def spod_parser(nt, nx, isrealx, window, weight, noverlap, conflvl):
     
-    if window == 'hamming' or not window:
+    if window == 'hamming' or window is None:
         nDFT = 2 ** np.floor(np.log2(nt / 10.0)).astype(int)
         window = hammwin(nDFT)
         window_name = 'Hamming'
@@ -29,6 +28,7 @@ def spod_parser(nt, nx, isrealx, window, weight, noverlap):
         window_name = 'Hamming'
 
     else:
+        window = window.flatten(order='F')
         nDFT = np.size(window)
         window_name = 'user specified'
     
@@ -39,15 +39,23 @@ def spod_parser(nt, nx, isrealx, window, weight, noverlap):
         raise ValueError('Overlap too large')
     
     # inner product weight
-    if not weight:
+    if weight is None:
         weight = np.ones(nx)
         weight_name = 'uniform'
         
     elif not np.size(weight) == nx:
-        raise ValueError('Weights must have the same spatial dimensions as data.')
+        raise ValueError('Weights must have the same spatial dimensions as data.  weight: %d, nx: %d' % (np.size(weight), nx))
         
     else:
+        weight = weight.flatten(order='F')
         weight_name = 'user_specified'
+    
+    # confidence interval
+    if conflvl is not None:
+        if conflvl is True:
+            conflvl = 0.95
+        elif (conflvl is not False) and not (conflvl > 0 and conflvl < 1):
+            raise ValueError('Confidence interval value must be either True (defaults to 0.95) or a decimal between 0 and 1.')
     
     # number of blocks
     nBlks = np.floor((nt - noverlap) / (nDFT - noverlap)).astype(int)
@@ -70,9 +78,9 @@ def spod_parser(nt, nx, isrealx, window, weight, noverlap):
     printer('Windowing fct. (time)     : %s' % window_name, 1)
     printer('Weighting fct. (space)    : %s' % weight_name, 1)
     
-    return (window, weight, noverlap, nDFT, nBlks)
+    return (window, weight, noverlap, nDFT, nBlks, conflvl)
 
-def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isreal=None, nt = None, confint=False, conflvl=0.95, normvar=False, debug=0):
+def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isreal=None, nt = None, conflvl=None, normvar=False, debug=0):
     global verbosity
     verbosity = debug
     
@@ -82,9 +90,10 @@ def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isrea
         if nt is None:
             warn('Please specify number of snapshots in "opts.nt". Trying to use default value of 10000 snapshots.')
             nt  = 10000
-        sizex = np.shape(x)[0]
-        nx = np.size(x)
-        dim = [nt, sizex]
+        x0 = x(0)
+        sizex = np.shape(x0)
+        nx = np.prod(sizex)
+        dim = [nt] + list(sizex)
     else:
         xfun = False
         dim = np.shape(x)
@@ -100,22 +109,23 @@ def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isrea
     elif not xfun:
         isrealx = np.isrealobj(x)
     else:
-        isrealx = np.isrealobj(x[0])
+        isrealx = np.isrealobj(x0)
+        del x0
     
-    window,weight,noverlap,nDFT,nBlks = spod_parser(nt, nx, isrealx, window, weight, noverlap)
+    window,weight,noverlap,nDFT,nBlks,conflvl = spod_parser(nt, nx, isrealx, window, weight, noverlap, conflvl)
     
     # determine correction for FFT window gain
     winWeight   = 1.0 / np.mean(window)
     
     # Use data mean if not provided through opts['mean']
-    if mean == 'blockwise':
+    if type(mean)==str and mean == 'blockwise':
         blk_mean = True
     else:
         blk_mean = False
     
     if xfun:
         if (mean is not None) and (not blk_mean):
-            x_mean = mean
+            x_mean = mean.flatten(order='F')
             mean_name = 'user specified'
         elif blk_mean:
             mean_name = 'blockwise mean'
@@ -177,11 +187,11 @@ def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isrea
         Q_blk = np.multiply(Q_blk, np.expand_dims(window, axis=1))
         Q_blk_hat = (winWeight / nDFT) * scipy.fft.fft(Q_blk, axis=0, workers=-1)[:nFreq, :]
         
-    #     # correct Fourier coefficients for one-sided spectrum
+        # correct Fourier coefficients for one-sided spectrum
         if isrealx:
             Q_blk_hat[1:-1, :] *= 2.0
         
-    #     # keep FFT blocks in memory
+        # keep FFT blocks in memory
         Q_hat[:,:,iBlk] = Q_blk_hat
     
     # loop over all frequencies and calculate SPOD
@@ -203,20 +213,17 @@ def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isrea
         Psi = np.matmul(np.matmul(Q_hat_f, Theta), np.diag(np.reciprocal(np.sqrt(Lambda)) / np.sqrt(nBlks)))
         P[iFreq,:,:] = Psi # mode
         L[iFreq, :] = np.abs(Lambda) # energy distribution
-        if confint:
-            xi2_upper = 2 * gammaincinv(nBlks, 1.0 - conflvl)
-            xi2_lower = 2 * gammaincinv(nBlks, conflvl)
-            Lc = np.zeros((nFreq, nBlks, 2))
-            Lc[iFreq, :, 0] = L[iFreq, :] * 2 * nBlks / xi2_lower
-            Lc[iFreq, :, 1] = L[iFreq, :] * 2 * nBlks / xi2_upper
-    
-    newDim = [nFreq]
-    newDim.extend(dim[1:])
-    newDim.append(nBlks)
-    P = np.reshape(P, tuple(newDim), order='F')
+        
+    newDim = [nFreq] + list(dim[1:]) + [nBlks]
+    P = np.reshape(P, newDim, order='F')
     L = np.real_if_close(L)
     P = np.real_if_close(P)
     output = {'L':L, 'P':P, 'f':f}
-    if confint:
+    
+    if conflvl:
+        Lc = np.zeros((nFreq, nBlks, 2), dtype=L.dtype)
+        Lc[:, :, 0] = L * nBlks / gammaincinv(nBlks, conflvl)
+        Lc[:, :, 1] = L * nBlks / gammaincinv(nBlks, 1.0 - conflvl)
         output['Lc'] = Lc
+        
     return output
