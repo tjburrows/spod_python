@@ -3,6 +3,7 @@ import numpy as np
 from types import FunctionType
 from warnings import warn
 from scipy.special import gammaincinv
+import scipy
 
 def hammwin(N):
     return 0.54 - 0.46 * np.cos(2 * np.pi * np.arange(N) / (N - 1))
@@ -126,7 +127,7 @@ def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isrea
         if blk_mean:
             mean_name = 'blockwise mean'
         else:
-            x_mean = np.mean(x, axis=0).flatten()
+            x_mean = np.mean(x, axis=0).flatten(order='F')
             mean_name = 'long-time (true) mean'
     
     printer('Mean                      : %s' % mean_name, 1)
@@ -141,12 +142,6 @@ def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isrea
         else:
             f[(nDFT+1)/2:] -= 1.0 / dt
     nFreq = np.size(f)
-   
-    # set default for confidence interval (in python, always output Lc)
-    if confint:
-        xi2_upper = 2 * gammaincinv(nBlks, 1.0 - conflvl)
-        xi2_lower = 2 * gammaincinv(nBlks, conflvl)
-        Lc = np.zeros((nFreq, nBlks, 2))
     
     # loop over number of blocks and generate Fourier realizations
     printer('\nCalculating temporal DFT\n------------------------------------', 1)
@@ -162,9 +157,9 @@ def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isrea
             Q_blk = np.zeros((nDFT, nx))
             for ti in timeIdx:
                 xi = x(ti)
-                Q_blk[ti - offset, :] = xi.flatten() - x_mean
+                Q_blk[ti - offset, :] = xi.flatten(order='F') - x_mean
         else:
-            Q_blk = np.subtract(np.reshape(x[timeIdx,:], (nDFT,-1)), np.expand_dims(x_mean,0))
+            Q_blk = np.subtract(np.reshape(x[timeIdx,:], (nDFT,-1), order='F'), np.expand_dims(x_mean,0))
         
         # if block mean is to be subtracted, do it now that all data is collected
         if blk_mean:
@@ -180,27 +175,28 @@ def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isrea
             
         # window and Fourier transform block
         Q_blk = np.multiply(Q_blk, np.expand_dims(window, axis=1))
-        Q_blk_hat = winWeight / nDFT * scipy.fft.fft(Q_blk, axis=1)
-        Q_blk_hat = Q_blk_hat[:nFreq, :]
+        Q_blk_hat = (winWeight / nDFT) * scipy.fft.fft(Q_blk, axis=0, workers=-1)[:nFreq, :]
         
-        # correct Fourier coefficients for one-sided spectrum
+    #     # correct Fourier coefficients for one-sided spectrum
         if isrealx:
-            Q_blk_hat[1:-1, :] *= 2
+            Q_blk_hat[1:-1, :] *= 2.0
         
-        # keep FFT blocks in memory
+    #     # keep FFT blocks in memory
         Q_hat[:,:,iBlk] = Q_blk_hat
-        
-    # loop over all frequencies and calculate SPOD
-    L = np.zeros((nFreq, nBlks))
-    printer('\nCalculating SPOD\n------------------------------------', 1)
     
+    # loop over all frequencies and calculate SPOD
+    L = np.zeros((nFreq, nBlks),  dtype=np.cdouble)
+    printer('\nCalculating SPOD\n------------------------------------', 1)
+   
     # keep everything in memory
     P   = np.zeros((nFreq,nx,nBlks), dtype=np.cdouble)
     for iFreq in range(nFreq):
         printer('frequency %d / %d (f=%g)' % (iFreq+1, nFreq, f[iFreq]), 2)
-        Q_hat_f = Q_hat[iFreq, :, :]
-        M = np.matmul(Q_hat_f.T, np.multiply(Q_hat_f, np.expand_dims(weight, axis=1))) / nBlks
-        Lambda, Theta = np.linalg.eig(M) # Lambda matches but Theta does not (but is still valid)
+        Q_hat_f = np.matrix(Q_hat[iFreq, :, :])
+        M = np.matmul(Q_hat_f.H, np.multiply(Q_hat_f, np.expand_dims(weight, axis=1))) / nBlks
+        Lambda, Theta = scipy.linalg.eig(M,check_finite=True) # Lambda matches but Theta does not (but is still valid)
+        Lambda = np.real_if_close(Lambda)
+        Theta = np.real_if_close(Theta)
         idx = np.argsort(Lambda)[::-1]
         Lambda = Lambda[idx]
         Theta = Theta[:, idx]
@@ -208,14 +204,19 @@ def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isrea
         P[iFreq,:,:] = Psi # mode
         L[iFreq, :] = np.abs(Lambda) # energy distribution
         if confint:
+            xi2_upper = 2 * gammaincinv(nBlks, 1.0 - conflvl)
+            xi2_lower = 2 * gammaincinv(nBlks, conflvl)
+            Lc = np.zeros((nFreq, nBlks, 2))
             Lc[iFreq, :, 0] = L[iFreq, :] * 2 * nBlks / xi2_lower
             Lc[iFreq, :, 1] = L[iFreq, :] * 2 * nBlks / xi2_upper
     
     newDim = [nFreq]
     newDim.extend(dim[1:])
     newDim.append(nBlks)
-    P = np.reshape(P, tuple(newDim))
-    output = {'L':L,'P':P,'f':f}
+    P = np.reshape(P, tuple(newDim), order='F')
+    L = np.real_if_close(L)
+    P = np.real_if_close(P)
+    output = {'L':L, 'P':P, 'f':f}
     if confint:
         output['Lc'] = Lc
     return output
