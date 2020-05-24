@@ -31,7 +31,7 @@ def spod_parser(nt, nx, isrealx, window, weight, noverlap, conflvl):
         window_name = 'Hamming'
 
     else:
-        window = window.flatten(order='F')
+        window = window.flatten()
         nDFT = np.size(window)
         window_name = 'user specified'
     
@@ -50,7 +50,7 @@ def spod_parser(nt, nx, isrealx, window, weight, noverlap, conflvl):
         raise ValueError('Weights must have the same spatial dimensions as data.  weight: %d, nx: %d' % (np.size(weight), nx))
         
     else:
-        weight = weight.flatten(order='F')
+        weight = weight.flatten()
         weight_name = 'user_specified'
     
     # confidence interval
@@ -134,7 +134,7 @@ def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isrea
     
     if xfun:
         if (mean is not None) and (not blk_mean):
-            x_mean = mean.flatten(order='F')
+            x_mean = mean.flatten()
             mean_name = 'user specified'
         elif blk_mean:
             mean_name = 'blockwise mean'
@@ -146,7 +146,7 @@ def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isrea
         if blk_mean:
             mean_name = 'blockwise mean'
         else:
-            x_mean = np.mean(x, axis=0).flatten(order='F')
+            x_mean = np.mean(x, axis=0).flatten()
             mean_name = 'long-time (true) mean'
     
     printer('Mean                      : %s' % mean_name, 1)
@@ -176,9 +176,9 @@ def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isrea
         if xfun:
             Q_blk = np.zeros((nDFT, nx), dtype=x.dtype)
             for ti in timeIdx:
-                Q_blk[ti - offset, :] = x(ti).flatten(order='F') - x_mean
+                Q_blk[ti - offset, :] = x(ti).flatten() - x_mean
         else:
-            Q_blk = np.subtract(np.reshape(x[timeIdx,:], (nDFT,-1), order='F'), np.expand_dims(x_mean, 0))
+            Q_blk = np.subtract(np.reshape(x[timeIdx,:], (nDFT,-1)), np.expand_dims(x_mean, 0))
         
         # if block mean is to be subtracted, do it now that all data is collected
         if blk_mean:
@@ -202,8 +202,6 @@ def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isrea
         
         # keep FFT blocks in memory
         Q_hat[:,:,iBlk] = Q_blk_hat
-        
-    Q_hat = np.real_if_close(Q_hat)
     
     # loop over all frequencies and calculate SPOD
     L = np.zeros((nFreq, nBlks),  dtype=np.cdouble)
@@ -216,8 +214,6 @@ def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isrea
         Q_hat_f = np.matrix(Q_hat[iFreq, :, :])
         M = np.matmul(Q_hat_f.H, np.multiply(Q_hat_f, np.expand_dims(weight, axis=1))) / nBlks
         Lambda, Theta = scipy.linalg.eig(M) # Lambda matches but Theta does not (but is still valid)
-        Lambda = np.real_if_close(Lambda)
-        Theta = np.real_if_close(Theta)
         idx = np.argsort(Lambda)[::-1]
         Lambda = Lambda[idx]
         Theta = Theta[:, idx]          
@@ -226,7 +222,7 @@ def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isrea
         L[iFreq, :] = np.abs(Lambda) # energy distribution
         
     newDim = [nFreq] + list(dim[1:]) + [nBlks]
-    P = np.reshape(P, newDim, order='F')
+    P = np.reshape(P, newDim)
     L = np.real_if_close(L)
     P = np.real_if_close(P)
     output = {'L':L, 'P':P, 'f':f}

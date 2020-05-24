@@ -41,3 +41,5 @@ for fi in [10,15,20]:
         plt.xlim(0,10)
         plt.ylim(0,2)
         count += 1
+
+plt.show()
