@@ -117,6 +117,10 @@ def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isrea
         isrealx = np.isrealobj(x0)
         del x0
     
+    # Fix datatype
+    if not xfun:
+        x = np.float64(x) if isrealx else np.complex128(x)
+    
     window,weight,noverlap,nDFT,nBlks,conflvl = spod_parser(nt, nx, isrealx, window, weight, noverlap, conflvl)
     
     # determine correction for FFT window gain
@@ -170,11 +174,11 @@ def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isrea
         if blk_mean:
             x_mean = 0
         if xfun:
-            Q_blk = np.zeros((nDFT, nx))
+            Q_blk = np.zeros((nDFT, nx), dtype=x.dtype)
             for ti in timeIdx:
                 Q_blk[ti - offset, :] = x(ti).flatten(order='F') - x_mean
         else:
-            Q_blk = np.subtract(np.reshape(x[timeIdx,:], (nDFT,-1), order='F'), np.expand_dims(x_mean,0))
+            Q_blk = np.subtract(np.reshape(x[timeIdx,:], (nDFT,-1), order='F'), np.expand_dims(x_mean, 0))
         
         # if block mean is to be subtracted, do it now that all data is collected
         if blk_mean:
@@ -211,13 +215,13 @@ def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isrea
         printer('frequency %d / %d (f=%g)' % (iFreq+1, nFreq, f[iFreq]), 2)
         Q_hat_f = np.matrix(Q_hat[iFreq, :, :])
         M = np.matmul(Q_hat_f.H, np.multiply(Q_hat_f, np.expand_dims(weight, axis=1))) / nBlks
-        Lambda, Theta = scipy.linalg.eig(M, check_finite=True) # Lambda matches but Theta does not (but is still valid)
+        Lambda, Theta = scipy.linalg.eig(M) # Lambda matches but Theta does not (but is still valid)
         Lambda = np.real_if_close(Lambda)
         Theta = np.real_if_close(Theta)
         idx = np.argsort(Lambda)[::-1]
         Lambda = Lambda[idx]
-        Theta = Theta[:, idx]
-        Psi = np.matmul(np.matmul(Q_hat_f, Theta), np.diag(np.reciprocal(np.sqrt(Lambda)) / np.sqrt(nBlks)))
+        Theta = Theta[:, idx]          
+        Psi = np.matmul(np.matmul(Q_hat_f, Theta), np.diag(np.reciprocal(np.lib.scimath.sqrt(Lambda)) / np.sqrt(nBlks)))
         P[iFreq,:,:] = Psi # mode
         L[iFreq, :] = np.abs(Lambda) # energy distribution
         
