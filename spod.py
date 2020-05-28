@@ -211,8 +211,8 @@ def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isrea
     P   = np.zeros((nFreq,nx,nBlks), dtype=np.cdouble)
     for iFreq in range(nFreq):
         printer('frequency %d / %d (f=%g)' % (iFreq+1, nFreq, f[iFreq]), 2)
-        Q_hat_f = np.matrix(Q_hat[iFreq, :, :])
-        M = np.matmul(Q_hat_f.H, np.multiply(Q_hat_f, np.expand_dims(weight, axis=1))) / nBlks
+        Q_hat_f = Q_hat[iFreq, :, :]
+        M = np.matmul(np.conj(np.transpose(Q_hat_f)), np.multiply(Q_hat_f, np.expand_dims(weight, axis=1))) / nBlks
         Lambda, Theta = scipy.linalg.eig(M) # Lambda matches but Theta does not (but is still valid)
         idx = np.argsort(Lambda)[::-1]
         Lambda = Lambda[idx]
