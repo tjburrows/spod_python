@@ -292,7 +292,8 @@ def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isrea
             
         # window and Fourier transform block
         Q_blk = np.multiply(Q_blk, np.expand_dims(window, axis=1))
-        Q_blk_hat = (winWeight / nDFT) * scipy.fft.fft(Q_blk, axis=0, workers=-1)[:nFreq, :]
+        Q_blk_hat = (winWeight / nDFT) * scipy.fft.fft(Q_blk, axis=0, workers=-1)
+        Q_blk_hat = Q_blk_hat[:nFreq, :]
         
         # correct Fourier coefficients for one-sided spectrum
         if isrealx:
@@ -330,9 +331,6 @@ def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isrea
         Psi = np.matmul(np.matmul(Q_hat_f, Theta), np.diag(np.reciprocal(np.lib.scimath.sqrt(Lambda)) / np.sqrt(nBlks)))
         P[iFreq,:] = Psi.reshape(pDim[1:]) # mode
         L[iFreq, :] = np.abs(Lambda) # energy distribution
-    
-    # Cast to real if all modes are real
-    P = np.real_if_close(P)
     
     # Calculate confidence interval
     if conflvl:
