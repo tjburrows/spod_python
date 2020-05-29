@@ -196,7 +196,6 @@ def spod(
 
     # In low memory mode, a save file must be specified
     if lowmem:
-
         assert savefile is not None, "savefile must be provided in lowmem mode"
 
     # Warn about overwriting file
