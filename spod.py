@@ -301,9 +301,7 @@ def spod(
         offset = int(min(iBlk * (nDFT - noverlap) + nDFT, nt) - nDFT)
         timeIdx = np.arange(nDFT) + offset
         printer(
-            "block %d  / %d (%d:%d)"
-            % (iBlk + 1, nBlks, timeIdx[0] + 1, timeIdx[-1] + 1),
-            2,
+            "block %d  / %d (%d:%d)" % (iBlk + 1, nBlks, timeIdx[0] + 1, timeIdx[-1] + 1), 2,
         )
 
         # build present block
@@ -314,9 +312,7 @@ def spod(
             for ti in timeIdx:
                 Q_blk[ti - offset, :] = x(ti).flatten() - x_mean
         else:
-            Q_blk = np.subtract(
-                np.reshape(x[timeIdx, :], (nDFT, -1)), np.expand_dims(x_mean, 0)
-            )
+            Q_blk = np.subtract(np.reshape(x[timeIdx, :], (nDFT, -1)), np.expand_dims(x_mean, 0))
 
         # if block mean is to be subtracted, do it now that all data is collected
         if blk_mean:
@@ -325,8 +321,7 @@ def spod(
         # normalize by pointwise variance
         if normvar:
             Q_var = np.sum(
-                np.power(np.subtract(Q_blk, np.mean(Q_blk, axis=0, keepdims=True)), 2),
-                axis=0,
+                np.power(np.subtract(Q_blk, np.mean(Q_blk, axis=0, keepdims=True)), 2), axis=0,
             ) / (nDFT - 1)
             # address division-by-0 problem with NaNs
             eps = np.finfo(Q_var.dtype).eps
@@ -353,9 +348,7 @@ def spod(
         output = h5py.File(savefile, "a")
         if "L" in output:
             del output["L"]
-        L = output.create_dataset(
-            "L", (nFreq, nBlks), dtype=np.double, compression="gzip"
-        )
+        L = output.create_dataset("L", (nFreq, nBlks), dtype=np.double, compression="gzip")
         if nmodes > 0:
             if "P" in output:
                 del output["P"]
