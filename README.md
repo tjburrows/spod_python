@@ -2,10 +2,11 @@
 This is a port of the Towne et al. SPOD Matlab function to Python 3.
 
 ## Current Status
-Basic spod computation works, and example results match well.  Results do not match exactly in part because of different (but still valid) eigenvectors from Numpy.
+SPOD computation works and example results match well.  Results do not match exactly in part because of different (but still valid) eigenvectors from Numpy.  A low-memory mode is available which is similar to the savefft feature of the Matlab version.
 
 ### To Do
  - commenting and formatting
+ - implement savefreqs
 
 ### Requirements
  Install the below requirements with `pip install requirements.txt`
