@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from spod import spod
 from utils import trapzWeightsPolar, getjet
+import os
 
 plt.close('all')
 
@@ -18,9 +19,11 @@ x = np.swapaxes(data['x'],0,1)
 r = np.swapaxes(data['r'],0,1)
 dt = data['dt'][0][0]
 
+savefile = 'results.hdf5'
+
 intWeights = trapzWeightsPolar(r[:,0], x[0,:])
 
-result = spod(getjet, window=256, weight=intWeights, noverlap=128, dt=dt, mean=p_mean, nt=2000, debug=2)
+result = spod(getjet, window=256, weight=intWeights, noverlap=128, dt=dt, mean=p_mean, nt=2000, debug=2, lowmem=True, savefile=savefile)
 
 plt.figure()
 plt.loglog(result['f'], result['L'], linewidth=0.5)
@@ -45,3 +48,5 @@ for fi in [10,15,20]:
         count += 1
 
 plt.show()
+
+os.remove(savefile)

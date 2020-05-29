@@ -175,6 +175,7 @@ def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isrea
             nt  = 10000
         x0 = x(0)
         sizex = np.shape(x0)
+        xtype = x0.dtype
         nx = np.prod(sizex)
         dim = [nt] + list(sizex)
     else:
@@ -271,7 +272,7 @@ def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isrea
         if blk_mean:
             x_mean = 0
         if xfun:
-            Q_blk = np.zeros((nDFT, nx), dtype=x.dtype)
+            Q_blk = np.zeros((nDFT, nx), dtype=xtype)
             for ti in timeIdx:
                 Q_blk[ti - offset, :] = x(ti).flatten() - x_mean
         else:
