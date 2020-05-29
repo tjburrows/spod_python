@@ -4,13 +4,16 @@ This is a port of the Towne et al. SPOD Matlab function to Python 3.
 ## Current Status
 Basic spod computation works, and example results match well.  Results do not match exactly in part because of different (but still valid) eigenvectors from Numpy.
 
+### To Do
+ - commenting and formatting
+
 ### Requirements
  Install the below requirements with `pip install requirements.txt`
- - spod: numpy, scipy
+ - spod: numpy, scipy, h5py for low-memory mode
  - examples: matplotlib, h5py
 
 ### Usage
-spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isreal=None, nt=None, conflvl=None, normvar=False, debug=0, lowmem=False, savefile=None)
+    spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isreal=None, nt=None, conflvl=None, normvar=False,  debug=0, lowmem=False, savefile=None)
     
     Parameters
     ----------
