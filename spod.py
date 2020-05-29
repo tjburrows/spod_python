@@ -186,11 +186,11 @@ def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isrea
         
         # normalize by pointwise variance
         if normvar:
-            Q_var = np.sum(np.power(np.minus(Q_blk, np.mean(Q_blk, axis=0, keepdims=True)), 2), axis=0) / (nDFT - 1)
+            Q_var = np.sum(np.power(np.subtract(Q_blk, np.mean(Q_blk, axis=0, keepdims=True)), 2), axis=0) / (nDFT - 1)
             # address division-by-0 problem with NaNs
-            eps = np.finfo(type(Q_var)).eps
+            eps = np.finfo(Q_var.dtype).eps
             Q_var[Q_var < 4 * eps] = 1
-            Q_blk = np.divide(Q_blk,Q_var)
+            Q_blk = np.divide(Q_blk, Q_var)
             
         # window and Fourier transform block
         Q_blk = np.multiply(Q_blk, np.expand_dims(window, axis=1))
