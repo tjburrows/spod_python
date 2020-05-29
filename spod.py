@@ -5,6 +5,8 @@ from scipy.special import gammaincinv
 import scipy
 import os.path
 import os
+import tempfile
+import h5py
 
 # Hamming window
 def hammwin(N):
@@ -19,7 +21,7 @@ def printer(string, level):
 
 
 # parse spod arguments
-def spod_parser(nt, nx, isrealx, window, weight, noverlap, conflvl):
+def spod_parser(nt, nx, isrealx, window, weight, noverlap, conflvl, nmodes):
 
     # window size and type
     if window == "hamming" or window is None:
@@ -70,6 +72,12 @@ def spod_parser(nt, nx, isrealx, window, weight, noverlap, conflvl):
     # number of blocks
     nBlks = np.floor((nt - noverlap) / (nDFT - noverlap)).astype(int)
 
+    # number of modes to save
+    if nmodes is None:
+        nmodes = nBlks
+    else:
+        assert type(nmodes) == int, "nmodes is integer"
+
     # test feasibility
     if nDFT < 4 or nBlks < 2:
         raise ValueError("Spectral estimation parameters not meaningful.")
@@ -88,7 +96,7 @@ def spod_parser(nt, nx, isrealx, window, weight, noverlap, conflvl):
     printer("Windowing fct. (time)     : %s" % window_name, 1)
     printer("Weighting fct. (space)    : %s" % weight_name, 1)
 
-    return (window, weight, noverlap, nDFT, nBlks, conflvl)
+    return (window, weight, noverlap, nDFT, nBlks, conflvl, nmodes)
 
 
 def spod(
@@ -105,6 +113,8 @@ def spod(
     debug=0,
     lowmem=False,
     savefile=None,
+    nmodes=None,
+    savefreqs=None,
 ):
     """"
     Spectral proper orthogonal decomposition
@@ -167,6 +177,11 @@ def spod(
         Filename to which to save the results in HDF5 format.  If lowmem is True,
         a handle for this file is returned.  If False or None, the in-memory results 
         are returned in a dictionary.  If file exists, it is overwritten.  Defaults to None/False.
+    nmodes : int, optional
+        Number of most energetic SPOD modes to be saved.  Defaults to all modes.
+    savefreqs: list of ints, optional
+        List of frequency indices to calculate modes (P) and spectral energies (L).  Meant 
+        to reduce size of data if not all frequences are needed.  Defaults to all frequences.
     
     Returns
     -------
@@ -181,8 +196,6 @@ def spod(
 
     # In low memory mode, a save file must be specified
     if lowmem:
-        import tempfile
-        import h5py
 
         assert savefile is not None, "savefile must be provided in lowmem mode"
 
@@ -223,8 +236,8 @@ def spod(
         x = np.float64(x) if isrealx else np.complex128(x)
 
     # Parse parameters
-    window, weight, noverlap, nDFT, nBlks, conflvl = spod_parser(
-        nt, nx, isrealx, window, weight, noverlap, conflvl
+    window, weight, noverlap, nDFT, nBlks, conflvl, nmodes = spod_parser(
+        nt, nx, isrealx, window, weight, noverlap, conflvl, nmodes
     )
 
     # determine correction for FFT window gain
@@ -268,24 +281,18 @@ def spod(
         else:
             f[(nDFT + 1) / 2 :] -= 1.0 / dt
 
-    # if savefreqs is not None:
-    #     new_f = []
-    #     for freq in savefreqs:
-    #         if freq in f and freq not in new_f:
-    #             new_f.append(freq)
-    #         else:
-    #             fidx = np.argmin(np.abs(freq-f))
-    #             if f[fidx] not in new_f:
-    #                 warn('%g Hz does not exactly match.  Using %g instead.' % (freq, f[fidx]))
-    #                 new_f.append(f[fidx])
-    #     f = new_f
     nFreq = np.size(f)
+
+    if savefreqs is None:
+        savefreqs = np.arange(nFreq)
 
     # In low memory mode, open temporary file for Q_hat.  Else, hold in memory.
     if lowmem:
         tempf = tempfile.TemporaryFile()
         tempfh5 = h5py.File(tempf, "a")
-        Q_hat = tempfh5.create_dataset("Q_hat", (nFreq, nx, nBlks), dtype=np.cdouble)
+        Q_hat = tempfh5.create_dataset(
+            "Q_hat", (nFreq, nx, nBlks), dtype=np.cdouble, compression="gzip"
+        )
     else:
         Q_hat = np.zeros((nFreq, nx, nBlks), dtype=np.cdouble)
 
@@ -340,24 +347,28 @@ def spod(
         Q_hat[:, :, iBlk] = Q_blk_hat
 
     # Dimensions of P
-    pDim = [nFreq] + list(dim[1:]) + [nBlks]
+    pDim = [nFreq] + list(dim[1:]) + [nmodes]
 
     # In low memory mode, save L and P to files.  Else, hold in memory.
     if lowmem:
         output = h5py.File(savefile, "a")
         if "L" in output:
             del output["L"]
-        L = output.create_dataset("L", (nFreq, nBlks), dtype=np.double)
-        if "P" in output:
-            del output["P"]
-        P = output.create_dataset("P", pDim, dtype=np.cdouble)
+        L = output.create_dataset(
+            "L", (nFreq, nBlks), dtype=np.double, compression="gzip"
+        )
+        if nmodes > 0:
+            if "P" in output:
+                del output["P"]
+            P = output.create_dataset("P", pDim, dtype=np.cdouble, compression="gzip")
     else:
         L = np.zeros((nFreq, nBlks), dtype=np.double)
-        P = np.zeros(pDim, dtype=np.cdouble)
+        if nmodes > 0:
+            P = np.zeros(pDim, dtype=np.cdouble)
 
     # loop over all frequencies and calculate SPOD
     printer("\nCalculating SPOD\n------------------------------------", 1)
-    for iFreq in range(nFreq):
+    for iFreq in savefreqs:
         printer("frequency %d / %d (f=%g)" % (iFreq + 1, nFreq, f[iFreq]), 2)
         Q_hat_f = Q_hat[iFreq, :, :]
         M = (
@@ -372,18 +383,21 @@ def spod(
         )  # Lambda matches but Theta does not (but is still valid)
         idx = np.argsort(Lambda)[::-1]
         Lambda = Lambda[idx]
-        Theta = Theta[:, idx]
-        Psi = np.matmul(
-            np.matmul(Q_hat_f, Theta),
-            np.diag(np.reciprocal(np.lib.scimath.sqrt(Lambda)) / np.sqrt(nBlks)),
-        )
-        P[iFreq, :] = Psi.reshape(pDim[1:])  # mode
+        if nmodes > 0:
+            Theta = Theta[:, idx]
+            Psi = np.matmul(
+                np.matmul(Q_hat_f, Theta),
+                np.diag(np.reciprocal(np.lib.scimath.sqrt(Lambda)) / np.sqrt(nBlks)),
+            )
+            P[iFreq, :] = Psi[:, :nmodes].reshape(pDim[1:])  # mode
         L[iFreq, :] = np.abs(Lambda)  # energy distribution
 
     # Calculate confidence interval
     if conflvl:
         if lowmem:
-            Lc = output.create_dataset("Lc", shape=(nFreq, nBlks, 2), dtype=L.dtype)
+            Lc = output.create_dataset(
+                "Lc", shape=(nFreq, nBlks, 2), dtype=L.dtype, compression="gzip"
+            )
         else:
             Lc = np.zeros((nFreq, nBlks, 2), dtype=L.dtype)
         Lc[:, :, 0] = L * nBlks / gammaincinv(nBlks, conflvl)
@@ -391,7 +405,9 @@ def spod(
 
     # If held in memory, create output dictionary
     if not lowmem:
-        output = {"L": L, "P": P, "f": f}
+        output = {"L": L, "f": f}
+        if nmodes > 0:
+            output["P"] = P
         if conflvl:
             output["Lc"] = Lc
 
@@ -402,13 +418,13 @@ def spod(
             tempf.close()
             if "f" in output:
                 del output["f"]
-            output.create_dataset("f", data=f)
+            output.create_dataset("f", data=f, compression="gzip")
         else:
             with h5py.File(savefile, "a") as outputfile:
                 for key, value in output.items():
                     if key in outputfile:
                         del outputfile[key]
-                    outputfile.create_dataset(key, data=value)
+                    outputfile.create_dataset(key, data=value, compression="gzip")
 
     # Return either in-memory or on-disk dictionary
     return output
