@@ -4,17 +4,13 @@ This is a port of the Towne et al. SPOD Matlab function to Python 3.
 ## Current Status
 SPOD computation works and example results match well.  Spectral energies match exactly, and SPOD modes are close but not exact, in part because of different (but still valid) eigenvectors from Numpy.  A low-memory mode is available which is similar to the savefft feature of the Matlab version.
 
-### To Do
- - commenting and formatting
- - implement savefreqs
-
 ### Requirements
  Install the below requirements with `pip install requirements.txt`
  - spod: numpy, scipy, h5py for low-memory mode
  - examples: matplotlib, h5py
 
 ### Usage
-    spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isreal=None, nt=None, conflvl=None, normvar=False,  debug=0, lowmem=False, savefile=None)
+    spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isreal=None, nt=None, conflvl=None, normvar=False,  debug=0, lowmem=False, savefile=None, nmodes=None, savefreqs=None)
     
     Parameters
     ----------
@@ -67,12 +63,18 @@ SPOD computation works and example results match well.  Spectral energies match 
     lowmem : bool, optional
         Specifies whether to use low-memory mode.  If True, this stores the FFT blocks in a
         temporary file on disk, and also stores all returned quantities on disk, returning
-        a h5py handle for the file. Default is False, keeping everything in memory.  If
-        lowmem is True, savefile must be specified for the returned data.
+        a file handle. Default is False, keeping everything in memory.  If
+        lowmem is True, savefile must be specified for the returned data.  This mode requires
+        the h5py package.
     savefile : string, optional
         Filename to which to save the results in HDF5 format.  If lowmem is True,
         a handle for this file is returned.  If False or None, the in-memory results 
-        are returned in a dictionary.  Defaults to None/False.
+        are returned in a dictionary.  If file exists, it is overwritten.  Defaults to None/False.
+    nmodes : int, optional
+        Number of most energetic SPOD modes to be saved.  Defaults to all modes.
+    savefreqs: list of ints, optional
+        List of frequency indices to calculate modes (P) and spectral energies (L).  Meant 
+        to reduce size of data if not all frequences are needed.  Defaults to all frequences.
     
     Returns
     -------
