@@ -10,80 +10,102 @@ import os
 def hammwin(N):
     return 0.54 - 0.46 * np.cos(2 * np.pi * np.arange(N) / (N - 1))
 
+
 # print output based on verbosity level
 def printer(string, level):
     global verbosity
     if verbosity >= level:
         print(string)
 
+
 # parse spod arguments
 def spod_parser(nt, nx, isrealx, window, weight, noverlap, conflvl):
-    
+
     # window size and type
-    if window == 'hamming' or window is None:
+    if window == "hamming" or window is None:
         nDFT = 2 ** np.floor(np.log2(nt / 10.0)).astype(int)
         window = hammwin(nDFT)
-        window_name = 'Hamming'
+        window_name = "Hamming"
 
     elif np.size(window) == 1:
-        nDFT = window;
+        nDFT = window
         window = hammwin(nDFT)
-        window_name = 'Hamming'
+        window_name = "Hamming"
 
     else:
         window = window.flatten()
         nDFT = np.size(window)
-        window_name = 'user specified'
-    
+        window_name = "user specified"
+
     # block overlap
     if not noverlap:
         noverlap = np.floor(0.5 * nDFT)
     elif noverlap > nDFT - 1:
-        raise ValueError('Overlap too large')
-    
+        raise ValueError("Overlap too large")
+
     # inner product weight
     if weight is None:
         weight = np.ones(nx)
-        weight_name = 'uniform'
-        
+        weight_name = "uniform"
+
     elif not np.size(weight) == nx:
-        raise ValueError('Weights must have the same spatial dimensions as data.  weight: %d, nx: %d' % (np.size(weight), nx))
-        
+        raise ValueError(
+            "Weights must have the same spatial dimensions as data.  weight: %d, nx: %d"
+            % (np.size(weight), nx)
+        )
+
     else:
         weight = weight.flatten()
-        weight_name = 'user_specified'
-    
+        weight_name = "user_specified"
+
     # confidence interval
     if conflvl is not None:
         if conflvl is True:
             conflvl = 0.95
         elif (conflvl is not False) and not (conflvl > 0 and conflvl < 1):
-            raise ValueError('Confidence interval value must be either True (defaults to 0.95) or a decimal between 0 and 1.')
-    
+            raise ValueError(
+                "Confidence interval value must be either True (defaults to 0.95) or a decimal between 0 and 1."
+            )
+
     # number of blocks
     nBlks = np.floor((nt - noverlap) / (nDFT - noverlap)).astype(int)
-    
+
     # test feasibility
     if nDFT < 4 or nBlks < 2:
-        raise ValueError('Spectral estimation parameters not meaningful.')
-    
+        raise ValueError("Spectral estimation parameters not meaningful.")
+
     # display parameter summary
-    printer('\nSPOD parameters\n------------------------------------', 1)
-    
+    printer("\nSPOD parameters\n------------------------------------", 1)
+
     if isrealx:
-        printer('Spectrum type             : one-sided (real-valued signal)', 1)
+        printer("Spectrum type             : one-sided (real-valued signal)", 1)
     else:
-        printer('Spectrum type             : two-sided (complex-valued signal)', 1)
-    
-    printer('No. of snaphots per block : %d' % nDFT, 1)
-    printer('Block overlap             : %d' % noverlap, 1)
-    printer('No. of blocks             : %d' % nBlks, 1)
-    printer('Windowing fct. (time)     : %s' % window_name, 1)
-    printer('Weighting fct. (space)    : %s' % weight_name, 1)
-    
+        printer("Spectrum type             : two-sided (complex-valued signal)", 1)
+
+    printer("No. of snaphots per block : %d" % nDFT, 1)
+    printer("Block overlap             : %d" % noverlap, 1)
+    printer("No. of blocks             : %d" % nBlks, 1)
+    printer("Windowing fct. (time)     : %s" % window_name, 1)
+    printer("Weighting fct. (space)    : %s" % weight_name, 1)
+
     return (window, weight, noverlap, nDFT, nBlks, conflvl)
 
-def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isreal=None, nt=None, conflvl=None, normvar=False, debug=0, lowmem=False, savefile=None):
+
+def spod(
+    x,
+    window="hamming",
+    weight=None,
+    noverlap=None,
+    dt=1,
+    mean=None,
+    isreal=None,
+    nt=None,
+    conflvl=None,
+    normvar=False,
+    debug=0,
+    lowmem=False,
+    savefile=None,
+):
     """"
     Spectral proper orthogonal decomposition
     
@@ -156,23 +178,26 @@ def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isrea
     # verbosity of output
     global verbosity
     verbosity = debug
-    
+
     # In low memory mode, a save file must be specified
     if lowmem:
         import tempfile
         import h5py
+
         assert savefile is not None, "savefile must be provided in lowmem mode"
-    
+
     # Warn about overwriting file
     if savefile and os.path.exists(savefile):
-        warn('%s will be overwritten' % savefile)
-        
+        warn("%s will be overwritten" % savefile)
+
     # Get problem dimensions
     if isinstance(x, FunctionType) or callable(x):
         xfun = True
         if nt is None:
-            warn('Please specify number of snapshots in "opts.nt". Trying to use default value of 10000 snapshots.')
-            nt  = 10000
+            warn(
+                'Please specify number of snapshots in "opts.nt". Trying to use default value of 10000 snapshots.'
+            )
+            nt = 10000
         x0 = x(0)
         sizex = np.shape(x0)
         xtype = x0.dtype
@@ -192,53 +217,57 @@ def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isrea
     else:
         isrealx = np.isrealobj(x0)
         del x0
-    
+
     # Fix datatype
     if not xfun:
         x = np.float64(x) if isrealx else np.complex128(x)
-    
+
     # Parse parameters
-    window,weight,noverlap,nDFT,nBlks,conflvl = spod_parser(nt, nx, isrealx, window, weight, noverlap, conflvl)
-    
+    window, weight, noverlap, nDFT, nBlks, conflvl = spod_parser(
+        nt, nx, isrealx, window, weight, noverlap, conflvl
+    )
+
     # determine correction for FFT window gain
-    winWeight   = 1.0 / np.mean(window)
-    
+    winWeight = 1.0 / np.mean(window)
+
     # Use data mean if not provided through opts['mean']
-    if type(mean)==str and mean == 'blockwise':
+    if type(mean) == str and mean == "blockwise":
         blk_mean = True
     else:
         blk_mean = False
-    
+
     # Calculate mean
     if xfun:
         if (mean is not None) and (not blk_mean):
             x_mean = mean.flatten()
-            mean_name = 'user specified'
+            mean_name = "user specified"
         elif blk_mean:
-            mean_name = 'blockwise mean'
+            mean_name = "blockwise mean"
         else:
             x_mean = 0
-            warn('No mean subtracted. Consider providing long-time mean through opts[\'mean\'] for better accuracy at low frequencies.')
-            mean_name   = '0'
+            warn(
+                "No mean subtracted. Consider providing long-time mean through opts['mean'] for better accuracy at low frequencies."
+            )
+            mean_name = "0"
     else:
         if blk_mean:
-            mean_name = 'blockwise mean'
+            mean_name = "blockwise mean"
         else:
             x_mean = np.mean(x, axis=0).flatten()
-            mean_name = 'long-time (true) mean'
-    
-    printer('Mean                      : %s' % mean_name, 1)
-    
+            mean_name = "long-time (true) mean"
+
+    printer("Mean                      : %s" % mean_name, 1)
+
     # obtain frequency axis
     if isrealx:
         f = np.arange(np.ceil(nDFT / 2) + 1) / dt / nDFT
     else:
         f = np.arange(nDFT) / dt / nDFT
         if np.mod(nDFT, 2) == 0:
-            f[nDFT/2:] -= 1.0 / dt
+            f[nDFT / 2 :] -= 1.0 / dt
         else:
-            f[(nDFT+1)/2:] -= 1.0 / dt
-    
+            f[(nDFT + 1) / 2 :] -= 1.0 / dt
+
     # if savefreqs is not None:
     #     new_f = []
     #     for freq in savefreqs:
@@ -251,23 +280,26 @@ def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isrea
     #                 new_f.append(f[fidx])
     #     f = new_f
     nFreq = np.size(f)
-    
+
     # In low memory mode, open temporary file for Q_hat.  Else, hold in memory.
     if lowmem:
         tempf = tempfile.TemporaryFile()
-        tempfh5 = h5py.File(tempf,'a')
+        tempfh5 = h5py.File(tempf, "a")
         Q_hat = tempfh5.create_dataset("Q_hat", (nFreq, nx, nBlks), dtype=np.cdouble)
     else:
         Q_hat = np.zeros((nFreq, nx, nBlks), dtype=np.cdouble)
-        
-    
+
     # loop over number of blocks and generate Fourier realizations
-    printer('\nCalculating temporal DFT\n------------------------------------', 1)
+    printer("\nCalculating temporal DFT\n------------------------------------", 1)
     for iBlk in range(nBlks):
         offset = int(min(iBlk * (nDFT - noverlap) + nDFT, nt) - nDFT)
         timeIdx = np.arange(nDFT) + offset
-        printer('block %d  / %d (%d:%d)' % (iBlk+1, nBlks, timeIdx[0]+1, timeIdx[-1]+1), 2)
-        
+        printer(
+            "block %d  / %d (%d:%d)"
+            % (iBlk + 1, nBlks, timeIdx[0] + 1, timeIdx[-1] + 1),
+            2,
+        )
+
         # build present block
         if blk_mean:
             x_mean = 0
@@ -276,88 +308,107 @@ def spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isrea
             for ti in timeIdx:
                 Q_blk[ti - offset, :] = x(ti).flatten() - x_mean
         else:
-            Q_blk = np.subtract(np.reshape(x[timeIdx,:], (nDFT,-1)), np.expand_dims(x_mean, 0))
-        
+            Q_blk = np.subtract(
+                np.reshape(x[timeIdx, :], (nDFT, -1)), np.expand_dims(x_mean, 0)
+            )
+
         # if block mean is to be subtracted, do it now that all data is collected
         if blk_mean:
             Q_blk = np.subtract(Q_blk, np.mean(Q_blk, axis=0, keepdims=True))
-        
+
         # normalize by pointwise variance
         if normvar:
-            Q_var = np.sum(np.power(np.subtract(Q_blk, np.mean(Q_blk, axis=0, keepdims=True)), 2), axis=0) / (nDFT - 1)
+            Q_var = np.sum(
+                np.power(np.subtract(Q_blk, np.mean(Q_blk, axis=0, keepdims=True)), 2),
+                axis=0,
+            ) / (nDFT - 1)
             # address division-by-0 problem with NaNs
             eps = np.finfo(Q_var.dtype).eps
             Q_var[Q_var < 4 * eps] = 1
             Q_blk = np.divide(Q_blk, Q_var)
-            
+
         # window and Fourier transform block
         Q_blk = np.multiply(Q_blk, np.expand_dims(window, axis=1))
         Q_blk_hat = (winWeight / nDFT) * scipy.fft.fft(Q_blk, axis=0, workers=-1)
         Q_blk_hat = Q_blk_hat[:nFreq, :]
-        
+
         # correct Fourier coefficients for one-sided spectrum
         if isrealx:
             Q_blk_hat[1:-1, :] *= 2.0
-        
+
         # keep FFT blocks in memory
-        Q_hat[:,:,iBlk] = Q_blk_hat
-    
+        Q_hat[:, :, iBlk] = Q_blk_hat
+
     # Dimensions of P
     pDim = [nFreq] + list(dim[1:]) + [nBlks]
-    
+
     # In low memory mode, save L and P to files.  Else, hold in memory.
     if lowmem:
-        output = h5py.File(savefile,'a')
-        if 'L' in output:
-            del output['L']
+        output = h5py.File(savefile, "a")
+        if "L" in output:
+            del output["L"]
         L = output.create_dataset("L", (nFreq, nBlks), dtype=np.double)
-        if 'P' in output:
-            del output['P']
+        if "P" in output:
+            del output["P"]
         P = output.create_dataset("P", pDim, dtype=np.cdouble)
     else:
-        L = np.zeros((nFreq, nBlks),  dtype=np.double)
+        L = np.zeros((nFreq, nBlks), dtype=np.double)
         P = np.zeros(pDim, dtype=np.cdouble)
-        
+
     # loop over all frequencies and calculate SPOD
-    printer('\nCalculating SPOD\n------------------------------------', 1)
+    printer("\nCalculating SPOD\n------------------------------------", 1)
     for iFreq in range(nFreq):
-        printer('frequency %d / %d (f=%g)' % (iFreq+1, nFreq, f[iFreq]), 2)
+        printer("frequency %d / %d (f=%g)" % (iFreq + 1, nFreq, f[iFreq]), 2)
         Q_hat_f = Q_hat[iFreq, :, :]
-        M = np.matmul(np.conj(np.transpose(Q_hat_f)), np.multiply(Q_hat_f, np.expand_dims(weight, axis=1))) / nBlks
-        Lambda, Theta = scipy.linalg.eig(M) # Lambda matches but Theta does not (but is still valid)
+        M = (
+            np.matmul(
+                np.conj(np.transpose(Q_hat_f)),
+                np.multiply(Q_hat_f, np.expand_dims(weight, axis=1)),
+            )
+            / nBlks
+        )
+        Lambda, Theta = scipy.linalg.eig(
+            M
+        )  # Lambda matches but Theta does not (but is still valid)
         idx = np.argsort(Lambda)[::-1]
         Lambda = Lambda[idx]
-        Theta = Theta[:, idx]          
-        Psi = np.matmul(np.matmul(Q_hat_f, Theta), np.diag(np.reciprocal(np.lib.scimath.sqrt(Lambda)) / np.sqrt(nBlks)))
-        P[iFreq,:] = Psi.reshape(pDim[1:]) # mode
-        L[iFreq, :] = np.abs(Lambda) # energy distribution
-    
+        Theta = Theta[:, idx]
+        Psi = np.matmul(
+            np.matmul(Q_hat_f, Theta),
+            np.diag(np.reciprocal(np.lib.scimath.sqrt(Lambda)) / np.sqrt(nBlks)),
+        )
+        P[iFreq, :] = Psi.reshape(pDim[1:])  # mode
+        L[iFreq, :] = np.abs(Lambda)  # energy distribution
+
     # Calculate confidence interval
     if conflvl:
-        Lc = output.create_dataset("Lc", shape=(nFreq, nBlks, 2), dtype=L.dtype) if lowmem else np.zeros((nFreq, nBlks, 2), dtype=L.dtype)
+        if lowmem:
+            Lc = output.create_dataset("Lc", shape=(nFreq, nBlks, 2), dtype=L.dtype)
+        else:
+            Lc = np.zeros((nFreq, nBlks, 2), dtype=L.dtype)
         Lc[:, :, 0] = L * nBlks / gammaincinv(nBlks, conflvl)
         Lc[:, :, 1] = L * nBlks / gammaincinv(nBlks, 1.0 - conflvl)
-    
+
     # If held in memory, create output dictionary
     if not lowmem:
-        output = {'L':L, 'P':P, 'f':f}
+        output = {"L": L, "P": P, "f": f}
         if conflvl:
-            output['Lc'] = Lc
-    
+            output["Lc"] = Lc
+
     # Create output save file
     if savefile:
         if lowmem:
             tempfh5.close()
             tempf.close()
-            if 'f' in output:
-                del output['f']
-            output.create_dataset('f', data=f)
+            if "f" in output:
+                del output["f"]
+            output.create_dataset("f", data=f)
         else:
-            with h5py.File(savefile,'a') as outputfile:
-                for key,value in output.items():
+            with h5py.File(savefile, "a") as outputfile:
+                for key, value in output.items():
                     if key in outputfile:
                         del outputfile[key]
                     outputfile.create_dataset(key, data=value)
-    
+
     # Return either in-memory or on-disk dictionary
     return output
