@@ -2,7 +2,7 @@
 This is a port of the Towne et al. SPOD Matlab function to Python 3.
 
 ## Current Status
-SPOD computation works and example results match well.  Spectral energies match exactly, and SPOD modes are close but not exact, in part because of different (but still valid) eigenvectors from Numpy.  A low-memory mode is available which is similar to the savefft feature of the Matlab version.
+SPOD computation matches well with Matlab version.  Spectral energies match exactly, and SPOD modes are close but not exact, in part because of different (but still valid) eigenvectors from Numpy.  A low-memory mode is available which is similar to the savefft feature of the Matlab version.
 
 ### Requirements
  Install the below requirements with `pip install requirements.txt`
