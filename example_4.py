@@ -48,5 +48,5 @@ for fi in [10,15,20]:
         count += 1
 
 plt.show()
-
+result.close()
 os.remove(savefile)
