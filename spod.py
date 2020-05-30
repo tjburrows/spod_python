@@ -377,12 +377,12 @@ def spod(
         idx = np.argsort(Lambda)[::-1]
         Lambda = Lambda[idx]
         if nmodes > 0:
-            Theta = Theta[:, idx]
+            Theta = Theta[:, idx[:nmodes]]
             Psi = np.matmul(
                 np.matmul(Q_hat_f, Theta),
-                np.diag(np.reciprocal(np.lib.scimath.sqrt(Lambda)) / np.sqrt(nBlks)),
+                np.diag(np.reciprocal(np.lib.scimath.sqrt(Lambda[:nmodes])) / np.sqrt(nBlks)),
             )
-            P[iFreq, :] = Psi[:, :nmodes].reshape(pDim[1:])  # mode
+            P[iFreq, :] = Psi.reshape(pDim[1:])  # mode
         L[iFreq, :] = np.abs(Lambda)  # energy distribution
 
     # Calculate confidence interval
