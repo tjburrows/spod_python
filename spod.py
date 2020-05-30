@@ -370,9 +370,10 @@ def spod(
             )
             / nBlks
         )
-        Lambda, Theta = scipy.linalg.eig(
-            M
-        )  # Lambda matches but Theta does not (but is still valid)
+        if nmodes > 0:
+            Lambda, Theta = scipy.linalg.eig(M)
+        else:
+            Lambda = scipy.linalg.eigvals(M)
         idx = np.argsort(Lambda)[::-1]
         Lambda = Lambda[idx]
         if nmodes > 0:
