@@ -374,6 +374,7 @@ def spod(
             Lambda, Theta = scipy.linalg.eig(M)
         else:
             Lambda = scipy.linalg.eigvals(M)
+        Lambda = np.abs(Lambda)
         idx = np.argsort(Lambda)[::-1]
         Lambda = Lambda[idx]
         if nmodes > 0:
@@ -383,7 +384,7 @@ def spod(
                 np.diag(np.reciprocal(np.lib.scimath.sqrt(Lambda[:nmodes])) / np.sqrt(nBlks)),
             )
             P[iFreq, :] = Psi.reshape(pDim[1:])  # mode
-        L[iFreq, :] = np.abs(Lambda)  # energy distribution
+        L[iFreq, :] = Lambda  # energy distribution
 
     # Calculate confidence interval
     if conflvl:
