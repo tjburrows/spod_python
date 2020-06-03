@@ -27,7 +27,9 @@ This is a port of the [Towne et al. SPOD Matlab function](https://github.com/Spe
 | jet_data/jetLES.mat | Mach 0.9 turbulent jet test database | 
 
 ## Usage
-    spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isreal=None, nt=None, conflvl=None, normvar=False,  debug=0, lowmem=False, savefile=None, nmodes=None, savefreqs=None)
+    spod(x, window='hamming', weight=None, noverlap=None, dt=1, mean=None, isreal=None,
+         nt=None, conflvl=None, normvar=False,  debug=0, lowmem=False, savefile=None,
+         nmodes=None, savefreqs=None)
     
     Parameters
     ----------
