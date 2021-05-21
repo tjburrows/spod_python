@@ -1,8 +1,10 @@
+
 import numpy as np
 from types import FunctionType
 from warnings import warn
 from scipy.special import gammaincinv
 import scipy
+import scipy.fft
 import os.path
 import os
 import tempfile
@@ -24,7 +26,7 @@ def printer(string, level):
 def spod_parser(nt, nx, isrealx, window, weight, noverlap, conflvl, nmodes):
 
     # window size and type
-    if window == "hamming" or window is None:
+    if (type(window) == str and window == "hamming") or window is None:
         nDFT = 2 ** np.floor(np.log2(nt / 10.0)).astype(int)
         window = hammwin(nDFT)
         window_name = "Hamming"
