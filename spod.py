@@ -3,6 +3,7 @@ from types import FunctionType
 from warnings import warn
 from scipy.special import gammaincinv
 import scipy
+import scipy.fft
 import os.path
 import os
 import tempfile
